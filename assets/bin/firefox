@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "$CLYDE_INST_DIR/opt/firefox/firefox" "$@"

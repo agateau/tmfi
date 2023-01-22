@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2023 Aurélien Gâteau <mail@agateau.com>
+#
+# SPDX-License-Identifier: Apache-2.0
+set -euo pipefail
+
+PROGNAME=$(basename $0)
+
+URL="https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=@FF_LANG@"
+
+# XDG directories
+CACHE_DIR=${XDG_CACHE_HOME:-$HOME/.cache}
+SHARE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+BIN_DIR="$HOME/.local/bin"
+
+# ANSI colors
+C_YELLOW="\e[33m"
+C_CYAN="\e[36m"
+C_RESET="\e[0m"
+
+# Default values
+DEFAULT_DEST_DIR="$CACHE_DIR/firefox"
+FF_LANG=en-US
+
+die() {
+    echo "$PROGNAME: $*" >&2
+    exit 1
+}
+
+usage() {
+    if [ "$*" != "" ] ; then
+        echo "Error: $*"
+        echo
+    fi
+
+    cat << EOF
+Usage: $PROGNAME [OPTION ...] [<dest_dir>]
+Installs Firefox and create desktop menu entries.
+
+Options:
+  -h, --help          display this usage message and exit.
+  -l, --lang LANG     install for language LANG.
+
+Have a look at <https://download-installer.cdn.mozilla.net/pub/firefox/releases/latest/README.txt> for the list of supported languages.
+EOF
+
+    exit 1
+}
+
+step() {
+    echo -e "${C_YELLOW}🦊 $*${C_RESET}"
+}
+
+while [ $# -gt 0 ] ; do
+    case "$1" in
+    -h|--help)
+        usage
+        ;;
+    -l|--lang)
+        FF_LANG="$2"
+        shift
+        ;;
+    -*)
+        usage "Unknown option '$1'"
+        ;;
+    *)
+        if [ -z "$DEST_DIR" ] ; then
+            DEST_DIR="$1"
+        else
+            usage "Too many arguments"
+        fi
+        ;;
+    esac
+    shift
+done
+
+if [ -z "${DEST_DIR:-}" ] ; then
+    DEST_DIR="$DEFAULT_DEST_DIR"
+fi
+
+echo -e "Firefox will be downloaded and installed in $C_CYAN$DEST_DIR$C_RESET.
+A ${C_YELLOW}firefox$C_RESET symbolic link will be installed in $C_CYAN$BIN_DIR$C_RESET.
+A Firefox menu entry will be installed in $C_CYAN$SHARE_DIR$C_RESET.
+
+Make sure $C_CYAN$BIN_DIR$C_RESET is in \$PATH!
+"
+echo -n "Continue? "
+read answer
+
+if [ "$answer" != "y" ] ; then
+    exit 1
+fi
+
+DL_PATH="$CACHE_DIR/firefox.tar.bz2"
+
+URL=$(echo $URL | sed "s/@FF_LANG@/$FF_LANG/")
+
+step "Downloading\nfrom $URL\n  to $DL_PATH"
+curl --continue-at - -L "$URL" > "$DL_PATH"
+
+step "Unpacking"
+mkdir -p "$DEST_DIR"
+tar -C "$DEST_DIR" --strip-components 1 -xf "$DL_PATH"
+
+step "Creating symbolic link in $BIN_DIR"
+mkdir -p "$BIN_DIR"
+rm -f "$BIN_DIR/firefox"
+ln -s "$DEST_DIR/firefox" "$BIN_DIR"
+
+step "Creating menu entries"
+mkdir -p "$SHARE_DIR"
+cp -R share/* "$SHARE_DIR"
+
+echo -e "
+All done. You can now start Firefox from the command-line or from your desktop menu.
+
+${C_YELLOW}Troubleshooting${C_RESET}
+
+If the menu entry does not appear, try restarting your desktop session.
+
+If Firefox does not use your existing configuration, start it from the command-line like this:
+
+    ${C_YELLOW}firefox --ProfileManager${C_RESET}
+
+and select another profile."
