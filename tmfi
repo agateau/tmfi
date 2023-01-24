@@ -91,12 +91,12 @@ if [ "$answer" != "y" ] ; then
     exit 1
 fi
 
-DL_PATH="$CACHE_DIR/firefox.tar.bz2"
+DL_PATH="$CACHE_DIR/firefox-$FF_LANG.tar.bz2"
 
 URL=$(echo $URL | sed "s/@FF_LANG@/$FF_LANG/")
 
 step "Downloading\nfrom $URL\n  to $DL_PATH"
-curl --continue-at - -L "$URL" > "$DL_PATH"
+curl --continue-at - --location "$URL" --output "$DL_PATH"
 
 step "Unpacking"
 mkdir -p "$DEST_DIR"
