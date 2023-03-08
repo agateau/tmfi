@@ -2,7 +2,7 @@
 Type=Application
 Version=1.0
 Name=Firefox
-Categories=Internet;
+Categories=Network;WebBrowser;
 GenericName=Web Browser
 Icon=firefox
 Exec=firefox
