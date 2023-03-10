@@ -8,6 +8,11 @@ PROGNAME=$(basename $0)
 
 URL="https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=@FF_LANG@"
 
+TEMP_DIR="$(mktemp --tmpdir -d "tmfi-XXXXXX")"
+cleanup() {
+    rm -rf $TEMP_DIR
+}
+
 # XDG directories
 CACHE_DIR=${XDG_CACHE_HOME:-$HOME/.cache}
 SHARE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -78,7 +83,7 @@ if [ -z "${DEST_DIR:-}" ] ; then
     DEST_DIR="$DEFAULT_DEST_DIR"
 fi
 
-echo -e "Firefox will be downloaded and installed in $C_CYAN$DEST_DIR$C_RESET.
+echo -e "Firefox will be installed in $C_CYAN$DEST_DIR$C_RESET.
 A ${C_YELLOW}firefox$C_RESET symbolic link will be installed in $C_CYAN$BIN_DIR$C_RESET.
 A Firefox menu entry will be installed in $C_CYAN$SHARE_DIR$C_RESET.
 
@@ -91,12 +96,12 @@ if [ "$answer" != "y" ] ; then
     exit 1
 fi
 
-DL_PATH="$CACHE_DIR/firefox-$FF_LANG.tar.bz2"
-
 URL=$(echo $URL | sed "s/@FF_LANG@/$FF_LANG/")
 
-step "Downloading\nfrom $URL\n  to $DL_PATH"
-curl --continue-at - --location "$URL" --output "$DL_PATH"
+DL_PATH="$TEMP_DIR/firefox-$FF_LANG.tar.bz2"
+
+step "Downloading firefox from\n$URL"
+curl --location "$URL" --output "$DL_PATH"
 
 step "Unpacking"
 mkdir -p "$DEST_DIR"
