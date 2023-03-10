@@ -6,7 +6,8 @@ set -euo pipefail
 
 PROGNAME=$(basename $0)
 
-URL="https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=@FF_LANG@"
+DL_URL_TEMPLATE="https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=@FF_LANG@"
+README_URL="https://download-installer.cdn.mozilla.net/pub/firefox/releases/latest/README.txt"
 
 TEMP_DIR="$(mktemp --tmpdir -d "tmfi-XXXXXX")"
 cleanup() {
@@ -38,22 +39,25 @@ usage() {
         echo
     fi
 
-    cat << EOF
+    echo -e "
 Usage: $PROGNAME [OPTION ...] [<dest_dir>]
 Installs Firefox and create desktop menu entries.
 
 Options:
   -h, --help          display this usage message and exit.
   -l, --lang LANG     install for language LANG.
+  --lang-list         print the list of supported languages [1].
 
-Have a look at <https://download-installer.cdn.mozilla.net/pub/firefox/releases/latest/README.txt> for the list of supported languages.
-EOF
+[1]: This command downloads and print the content of
+${C_CYAN}${README_URL}${C_RESET}.
+"
 
     exit 1
 }
 
-step() {
-    echo -e "${C_YELLOW}🦊 $*${C_RESET}"
+h1() {
+    echo -e "${C_YELLOW}$*${C_RESET}"
+    echo
 }
 
 while [ $# -gt 0 ] ; do
@@ -64,6 +68,9 @@ while [ $# -gt 0 ] ; do
     -l|--lang)
         FF_LANG="$2"
         shift
+        ;;
+    --lang-list)
+        exec curl -s "${README_URL}"
         ;;
     -*)
         usage "Unknown option '$1'"
@@ -83,48 +90,53 @@ if [ -z "${DEST_DIR:-}" ] ; then
     DEST_DIR="$DEFAULT_DEST_DIR"
 fi
 
+DL_URL=$(echo $DL_URL_TEMPLATE | sed "s/@FF_LANG@/$FF_LANG/")
+
+DL_PATH="$TEMP_DIR/firefox-$FF_LANG.tar.bz2"
+
+h1 "🦊 Summary"
 echo -e "Firefox will be installed in $C_CYAN$DEST_DIR$C_RESET.
 A ${C_YELLOW}firefox$C_RESET symbolic link will be installed in $C_CYAN$BIN_DIR$C_RESET.
 A Firefox menu entry will be installed in $C_CYAN$SHARE_DIR$C_RESET.
 
 Make sure $C_CYAN$BIN_DIR$C_RESET is in \$PATH!
 "
-echo -n "Continue? "
+echo -n "Continue (y/N)? "
 read answer
 
 if [ "$answer" != "y" ] ; then
     exit 1
 fi
+echo
 
-URL=$(echo $URL | sed "s/@FF_LANG@/$FF_LANG/")
+h1 "🦊 Downloading Firefox from\n${C_CYAN}$DL_URL"
+curl --location "$DL_URL" --output "$DL_PATH"
+echo
 
-DL_PATH="$TEMP_DIR/firefox-$FF_LANG.tar.bz2"
-
-step "Downloading firefox from\n$URL"
-curl --location "$URL" --output "$DL_PATH"
-
-step "Unpacking"
+h1 "🦊 Unpacking"
 mkdir -p "$DEST_DIR"
 tar -C "$DEST_DIR" --strip-components 1 -xf "$DL_PATH"
 
-step "Creating symbolic link in $BIN_DIR"
+h1 "🦊 Creating symbolic link in $BIN_DIR"
 mkdir -p "$BIN_DIR"
 rm -f "$BIN_DIR/firefox"
 ln -s "$DEST_DIR/firefox" "$BIN_DIR"
 
-step "Creating menu entries"
+h1 "🦊 Creating menu entries"
 mkdir -p "$SHARE_DIR"
 cp -R share/* "$SHARE_DIR"
 
-echo -e "
-All done. You can now start Firefox from the command-line or from your desktop menu.
+h1 "🎉 All done!"
 
-${C_YELLOW}Troubleshooting${C_RESET}
+echo "You can now start Firefox from the command-line or from your desktop menu."
+echo
 
-If the menu entry does not appear, try restarting your desktop session.
+h1 "🐛 Troubleshooting"
 
-If Firefox does not use your existing configuration, start it from the command-line like this:
+echo -e "- If the menu entry does not appear, try restarting your desktop session.
 
-    ${C_YELLOW}firefox --ProfileManager${C_RESET}
+- If Firefox does not use your existing configuration, start it from the command-line like this:
+
+    ${C_CYAN}firefox --ProfileManager${C_RESET}
 
 and select another profile."
